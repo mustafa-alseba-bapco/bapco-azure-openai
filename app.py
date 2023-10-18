@@ -145,7 +145,10 @@ def generateFilterString(userToken):
 
 def prepare_body_headers_with_data(request):
     request_messages = request.json["messages"]
-
+    request_messages.insert(0, {
+        "role": "system",
+        "content": AZURE_OPENAI_SYSTEM_MESSAGE
+    })
     # Set query type
     query_type = "simple"
     if AZURE_SEARCH_QUERY_TYPE:
@@ -185,7 +188,6 @@ def prepare_body_headers_with_data(request):
                     "topNDocuments": AZURE_SEARCH_TOP_K,
                     "queryType": query_type,
                     "semanticConfiguration": AZURE_SEARCH_SEMANTIC_SEARCH_CONFIG if AZURE_SEARCH_SEMANTIC_SEARCH_CONFIG else "",
-                    "roleInformation": AZURE_OPENAI_SYSTEM_MESSAGE,
                     "embeddingEndpoint": AZURE_OPENAI_EMBEDDING_ENDPOINT,
                     "embeddingKey": AZURE_OPENAI_EMBEDDING_KEY,
                     "filter": filter,
