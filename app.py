@@ -17,16 +17,7 @@ app = Flask(__name__, static_folder="static")
 # Static Files
 @app.route("/")
 def index():
-    return app.send_static_file("index.html")
-
-@app.route("/favicon.ico")
-def favicon():
-    return app.send_static_file('favicon.ico')
-
-@app.route("/assets/<path:path>")
-def assets(path):
-    return send_from_directory("static/assets", path)
-
+    return app.send_static_file("homepage.html")
 
 # ACS Integration Settings
 AZURE_SEARCH_SERVICE = os.environ.get("AZURE_SEARCH_SERVICE")
@@ -372,9 +363,9 @@ def conversation_without_data(request_body):
 
 @app.route("/conversation", methods=["GET", "POST"])
 def conversation():
-    result = hasAccess(request)
-    if not result:
-        return Response(status=401)
+    #result = hasAccess(request)
+    #if not result:
+    #    return Response(status=401)
     
     request_body = request.json
     return conversation_internal(request_body)
