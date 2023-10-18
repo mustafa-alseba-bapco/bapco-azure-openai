@@ -56,6 +56,7 @@ AZURE_OPENAI_MAX_TOKENS = os.environ.get("AZURE_OPENAI_MAX_TOKENS", 1000)
 AZURE_OPENAI_STOP_SEQUENCE = os.environ.get("AZURE_OPENAI_STOP_SEQUENCE")
 AZURE_OPENAI_SYSTEM_MESSAGE = os.environ.get("AZURE_OPENAI_SYSTEM_MESSAGE", "You are an AI assistant that helps people find information.")
 AZURE_OPENAI_PREVIEW_API_VERSION = os.environ.get("AZURE_OPENAI_PREVIEW_API_VERSION", "2023-06-01-preview")
+#AZURE_OPENAI_PREVIEW_API_VERSION = "2023-06-01-preview"
 AZURE_OPENAI_STREAM = os.environ.get("AZURE_OPENAI_STREAM", "true")
 AZURE_OPENAI_MODEL_NAME = os.environ.get("AZURE_OPENAI_MODEL_NAME", "gpt-35-turbo-16k") # Name of the model, e.g. 'gpt-35-turbo-16k' or 'gpt-4'
 AZURE_OPENAI_EMBEDDING_ENDPOINT = os.environ.get("AZURE_OPENAI_EMBEDDING_ENDPOINT")
@@ -71,7 +72,7 @@ AZURE_COSMOSDB_CONVERSATIONS_CONTAINER = os.environ.get("AZURE_COSMOSDB_CONVERSA
 AZURE_COSMOSDB_ACCOUNT_KEY = os.environ.get("AZURE_COSMOSDB_ACCOUNT_KEY")
 
 
-userInfo = {}
+userInfo = None
 userName = ""
 # Initialize a CosmosDB client with AAD auth and containers
 cosmos_conversation_client = None
@@ -95,12 +96,13 @@ if AZURE_COSMOSDB_DATABASE and AZURE_COSMOSDB_ACCOUNT and AZURE_COSMOSDB_CONVERS
         cosmos_conversation_client = None
 
 def hasAccess(request):
-    if request.headers["Authorization"] is None:
+    token = request.headers.get('Authorization', "")
+    if token is "":
         return False
     
     endpoint = "https://graph.microsoft.com/v1.0/me"
     headers = {
-        'Authorization': "bearer " + request.headers["Authorization"]
+        'Authorization': "bearer " + token
     }
     try :
         r = requests.get(endpoint, headers=headers)
@@ -166,10 +168,11 @@ def generateFilterString(userToken):
 
 def prepare_body_headers_with_data(request):
     request_messages = request.json["messages"]
-    request_messages.insert(0, {
-        "role": "system",
-        "content": f"The user name is {userInfo.displayName}, and his position {userInfo.jobTitle}, his badge number is {userName}"
-    })
+    if userInfo:
+        request_messages.insert(0, {
+            "role": "system",
+            "content": f"The user name is {userInfo.displayName}, and his position {userInfo.jobTitle}, his badge number is {userName}"
+        })
     request_messages.insert(0, {
         "role": "system",
         "content": AZURE_OPENAI_SYSTEM_MESSAGE
@@ -248,6 +251,7 @@ def stream_with_data(body, headers, endpoint, history_metadata={}):
             for line in r.iter_lines(chunk_size=10):
                 if line:
                     lineJson = json.loads(line.lstrip(b'data:').decode('utf-8'))
+                    print(lineJson)
                     if 'error' in lineJson:
                         yield format_as_ndjson(lineJson)
                     response["id"] = lineJson["id"]
@@ -268,6 +272,7 @@ def stream_with_data(body, headers, endpoint, history_metadata={}):
                         if deltaText != "[DONE]":
                             response["choices"][0]["messages"][1]["content"] += deltaText
 
+                    print(response)
                     yield format_as_ndjson(response)
     except Exception as e:
         yield format_as_ndjson({"error": str(e)})
@@ -369,7 +374,7 @@ def conversation_without_data(request_body):
 def conversation():
     result = hasAccess(request)
     if not result:
-        return
+        return Response(status=401)
     
     request_body = request.json
     return conversation_internal(request_body)
