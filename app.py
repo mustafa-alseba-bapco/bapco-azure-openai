@@ -95,21 +95,23 @@ if AZURE_COSMOSDB_DATABASE and AZURE_COSMOSDB_ACCOUNT and AZURE_COSMOSDB_CONVERS
         cosmos_conversation_client = None
 
 def hasAccess(request):
-    if request.headers is None or request.headers["Authorization"] is None:
+    if request.headers["Authorization"] is None:
         return False
     
-    
-    r = requests.get("https://graph.microsoft.com/v1.0/me", headers={"Authorization": request.headers.authorization})
-    if r.status_code != 200:
+    endpoint = "https://graph.microsoft.com/v1.0/me"
+    headers = {
+        'Authorization': "bearer " + request.headers["Authorization"]
+    }
+    try :
+        r = requests.get(endpoint, headers=headers)
+        if r.status_code != 200:
+            return False
+        
+        userInfo = r.json()
+        userName = userInfo["userPrincipleName"].spilt("@")[0]
+        return userInfo["userPrincipleName"].upper().endWith("@BAPCO.NET")
+    except Exception as e:
         return False
-    if result["userPrincipleName"] == "":
-        return False
-    
-    result = r.json()
-    userInfo = result
-    userName = result["userPrincipleName"].spilt("@")[0]
-    return result["userPrincipleName"].upper().endWith("@BAPCO.NET")
-
 
 def is_chat_model():
     if 'gpt-4' in AZURE_OPENAI_MODEL_NAME.lower() or AZURE_OPENAI_MODEL_NAME.lower() in ['gpt-35-turbo-4k', 'gpt-35-turbo-16k']:
